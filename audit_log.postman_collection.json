@@ -1,0 +1,159 @@
+{
+    "info": {
+      "name": "Audit Log API",
+      "_postman_id": "12345678-90ab-cdef-1234-567890abcdef",
+      "description": "Audit Log API endpoints with example headers and bodies",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+      {
+        "name": "POST /api/v1/logs",
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"tenant_id\": \"tenant-123\",\n  \"user_id\": \"user-123\",\n  \"session_id\": \"session-abc\",\n  \"action\": \"CREATE\",\n  \"resource_type\": \"user\",\n  \"resource_id\": \"42\",\n  \"timestamp\": \"2025-07-15T12:34:56Z\",\n  \"ip_address\": \"127.0.0.1\",\n  \"user_agent\": \"PostmanRuntime/7.29.2\",\n  \"before_state\": {},\n  \"after_state\": {\"name\": \"John Doe\"},\n  \"metadata\": {\"custom\": \"value\"},\n  \"severity\": \"INFO\"\n}"
+          },
+          "url": { "raw": "http://localhost:10000/api/v1/logs", "host": ["localhost"], "port": "10000", "path": ["api", "v1", "logs"] }
+        }
+      },
+      {
+        "name": "GET /api/v1/logs",
+        "request": {
+          "method": "GET",
+          "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+          "url": {
+            "raw": "http://localhost:10000/api/v1/logs?start=2025-07-01&end=2025-07-15&severity=INFO",
+            "host": ["localhost"],
+            "port": "10000",
+            "path": ["api", "v1", "logs"],
+            "query": [
+              { "key": "start", "value": "2025-07-01" },
+              { "key": "end", "value": "2025-07-15" },
+              { "key": "severity", "value": "INFO" }
+            ]
+          }
+        }
+      },
+      {
+        "name": "GET /api/v1/logs/{id}",
+        "request": {
+          "method": "GET",
+          "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+          "url": {
+            "raw": "http://localhost:10000/api/v1/logs/LOG_ID",
+            "host": ["localhost"],
+            "port": "10000",
+            "path": ["api", "v1", "logs", "LOG_ID"]
+          }
+        }
+      },
+      {
+        "name": "GET /api/v1/logs/export",
+        "request": {
+          "method": "GET",
+          "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+          "url": {
+            "raw": "http://localhost:10000/api/v1/logs/export?format=json",
+            "host": ["localhost"],
+            "port": "10000",
+            "path": ["api", "v1", "logs", "export"],
+            "query": [{ "key": "format", "value": "json" }]
+          }
+        }
+      },
+      {
+        "name": "GET /api/v1/logs/stats",
+        "request": {
+          "method": "GET",
+          "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+          "url": {
+            "raw": "http://localhost:10000/api/v1/logs/stats",
+            "host": ["localhost"],
+            "port": "10000",
+            "path": ["api", "v1", "logs", "stats"]
+          }
+        }
+      },
+      {
+        "name": "POST /api/v1/logs/bulk",
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "[{\n  \"tenant_id\": \"tenant-123\",\n  \"user_id\": \"user-123\",\n  \"action\": \"UPDATE\",\n  \"resource_type\": \"order\",\n  \"resource_id\": \"order-456\",\n  \"timestamp\": \"2025-07-15T12:35:00Z\",\n  \"severity\": \"INFO\"\n}]"
+          },
+          "url": { "raw": "http://localhost:10000/api/v1/logs/bulk", "host": ["localhost"], "port": "10000", "path": ["api", "v1", "logs", "bulk"] }
+        }
+      },
+      {
+        "name": "DELETE /api/v1/logs/cleanup",
+        "request": {
+          "method": "DELETE",
+          "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+          "url": {
+            "raw": "http://localhost:10000/api/v1/logs/cleanup?before=2025-07-01",
+            "host": ["localhost"],
+            "port": "10000",
+            "path": ["api", "v1", "logs", "cleanup"],
+            "query": [{ "key": "before", "value": "2025-07-01" }]
+          }
+        }
+      },
+      {
+        "name": "WS /api/v1/logs/stream",
+        "request": {
+          "method": "GET",
+          "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+          "url": {
+            "raw": "ws://localhost:10000/api/v1/logs/stream",
+            "host": ["localhost"],
+            "port": "10000",
+            "path": ["api", "v1", "logs", "stream"]
+          }
+        }
+      },
+      {
+        "name": "GET /api/v1/tenants",
+        "request": {
+          "method": "GET",
+          "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+          "url": {
+            "raw": "http://localhost:10000/api/v1/tenants",
+            "host": ["localhost"],
+            "port": "10000",
+            "path": ["api", "v1", "tenants"]
+          }
+        }
+      },
+      {
+        "name": "POST /api/v1/tenants",
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"name\": \"Tenant ABC\",\n  \"description\": \"Test tenant\"\n}"
+          },
+          "url": { "raw": "http://localhost:10000/api/v1/tenants", "host": ["localhost"], "port": "10000", "path": ["api", "v1", "tenants"] }
+        }
+      }
+    ],
+    "variable": [
+      {
+        "key": "jwt_token",
+        "value": "YOUR_JWT_TOKEN_HERE"
+      }
+    ]
+  }
