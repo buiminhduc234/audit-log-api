@@ -43,8 +43,8 @@ func (s *Server) SetupRoutes(api *gin.RouterGroup) {
 			logs.GET("/:id", s.auditLog.GetLog)
 			logs.GET("/export", s.auditLog.ExportLogs)
 			logs.GET("/stats", s.auditLog.GetStats)
-			logs.POST("/bulk", s.auditLog.CreateBulkLogs)
-			logs.DELETE("/cleanup", s.auth.RequireRole("audit"), s.auditLog.CleanupLogs)
+			logs.POST("/bulk", s.auditLog.BulkCreateLogs)
+			logs.DELETE("/cleanup", s.auth.RequireRole("audit"), s.auditLog.DeleteOldLogs)
 		}
 	}
 }

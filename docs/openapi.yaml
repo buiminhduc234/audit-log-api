@@ -1,0 +1,453 @@
+openapi: 3.0.0
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+info:
+  contact: {}
+  description: This is a Audit log swagger server.
+  title: Audit log Swagger API
+  version: "1.0"
+paths:
+  /logs:
+    get:
+      description: Get a list of audit logs with filtering options
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+        - description: Page size
+          in: query
+          name: page_size
+          schema:
+            type: integer
+        - description: Filter by user ID
+          in: query
+          name: user_id
+          schema:
+            type: string
+        - description: Filter by action
+          in: query
+          name: action
+          schema:
+            type: string
+        - description: Filter by resource type
+          in: query
+          name: resource_type
+          schema:
+            type: string
+        - description: Filter by severity
+          in: query
+          name: severity
+          schema:
+            type: string
+        - description: Filter by start time (RFC3339)
+          in: query
+          name: start_time
+          schema:
+            type: string
+        - description: Filter by end time (RFC3339)
+          in: query
+          name: end_time
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/domain.AuditLog"
+                type: array
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+      summary: List audit logs
+      tags:
+        - audit_logs
+    post:
+      description: Create a new audit log entry
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/domain.AuditLog"
+        description: Audit log object
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.AuditLog"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+      summary: Create audit log
+      tags:
+        - audit_logs
+  "/logs/{id}":
+    get:
+      description: Get an audit log entry by its ID
+      parameters:
+        - description: Log ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.AuditLog"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+      summary: Get audit log
+      tags:
+        - audit_logs
+  /logs/bulk:
+    post:
+      description: Create multiple audit log entries in a single request
+      requestBody:
+        content:
+          application/json:
+            schema:
+              items:
+                $ref: "#/components/schemas/domain.AuditLog"
+              type: array
+        description: Array of audit log objects
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/domain.AuditLog"
+                type: array
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+      summary: Bulk create audit logs
+      tags:
+        - audit_logs
+  /logs/cleanup:
+    delete:
+      description: Delete audit logs older than specified days
+      parameters:
+        - description: Number of days to retain
+          in: query
+          name: days
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+      summary: Delete old logs
+      tags:
+        - audit_logs
+  /logs/export:
+    get:
+      description: Export audit logs with filtering options in JSON or CSV format
+      parameters:
+        - description: Export format (json or csv)
+          in: query
+          name: format
+          schema:
+            type: string
+            default: json
+        - description: Filter by user ID
+          in: query
+          name: user_id
+          schema:
+            type: string
+        - description: Filter by action
+          in: query
+          name: action
+          schema:
+            type: string
+        - description: Filter by resource type
+          in: query
+          name: resource_type
+          schema:
+            type: string
+        - description: Filter by severity
+          in: query
+          name: severity
+          schema:
+            type: string
+        - description: Filter by start time (RFC3339)
+          in: query
+          name: start_time
+          schema:
+            type: string
+        - description: Filter by end time (RFC3339)
+          in: query
+          name: end_time
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+            text/csv:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+            text/csv:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+            text/csv:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+      summary: Export audit logs
+      tags:
+        - audit_logs
+  /logs/stats:
+    get:
+      description: Get statistics about audit logs including counts by action,
+        severity, and resource
+      parameters:
+        - description: Filter by start time (RFC3339)
+          in: query
+          name: start_time
+          schema:
+            type: string
+        - description: Filter by end time (RFC3339)
+          in: query
+          name: end_time
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.AuditLogStats"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+      summary: Get log statistics
+      tags:
+        - audit_logs
+  /tenants:
+    get:
+      description: Get a list of all tenants that the authenticated user has access to
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/domain.Tenant"
+                type: array
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+      summary: List all tenants
+      tags:
+        - tenants
+    post:
+      description: Create a new tenant with specified configuration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/domain.Tenant"
+        description: Tenant object
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.Tenant"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dto.Error"
+      summary: Create a new tenant
+      tags:
+        - tenants
+servers:
+  - url: //localhost:10000/api/v1
+components:
+  securitySchemes:
+    BearerAuth:
+      in: header
+      name: Authorization
+      type: apiKey
+  schemas:
+    domain.AuditLog:
+      type: object
+    domain.AuditLogStats:
+      properties:
+        action_counts:
+          additionalProperties:
+            type: integer
+          type: object
+        resource_counts:
+          additionalProperties:
+            type: integer
+          type: object
+        severity_counts:
+          additionalProperties:
+            type: integer
+          type: object
+        total_logs:
+          type: integer
+      type: object
+    domain.Tenant:
+      properties:
+        created_at:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        rate_limit:
+          type: integer
+        updated_at:
+          type: string
+      type: object
+    dto.Error:
+      properties:
+        error:
+          example: error message
+          type: string
+      type: object

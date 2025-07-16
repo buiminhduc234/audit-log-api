@@ -1,8 +1,10 @@
-.PHONY: build run test clean migrate migrate-down
+.PHONY: build run test clean migrate migrate-down build-worker run-worker
 
 # Go related variables
 BINARY_NAME=audit-log-api
+WORKER_BINARY_NAME=audit-log-worker
 MAIN_PACKAGE=./cmd/api
+WORKER_PACKAGE=./cmd/worker
 
 # Docker related variables
 DOCKER_COMPOSE=docker-compose
@@ -10,11 +12,23 @@ DOCKER_COMPOSE=docker-compose
 # Build the application
 build:
 	@echo "Building audit-log-api..."
-	@go build -o bin/audit-log-api ./cmd/api
+	@go build -o bin/$(BINARY_NAME) $(MAIN_PACKAGE)
+
+# Build the worker
+build-worker:
+	@echo "Building audit-log-worker..."
+	@go build -o bin/$(WORKER_BINARY_NAME) $(WORKER_PACKAGE)
+
+# Build all
+build-all: build build-worker
 
 # Run the application
 run:
-	@go run ./cmd/api
+	@go run $(MAIN_PACKAGE)
+
+# Run the worker
+run-worker:
+	@go run $(WORKER_PACKAGE)
 
 # Run tests
 test:
@@ -30,9 +44,9 @@ docker-up:
 	$(DOCKER_COMPOSE) up -d
 
 # Stop Docker services
-docker-down:
+docker-clear:
 	@echo "Stopping Docker services..."
-	$(DOCKER_COMPOSE) down
+	$(DOCKER_COMPOSE) down -v
 
 # Rollback database migrations
 migrate-down:
@@ -57,6 +71,15 @@ lint:
 # Build and run the application
 dev: docker-up deps build run
 
+# Build and run the worker
+dev-worker: docker-up deps build-worker run-worker
+
 # Generate token
 generate-token:
-	@go run scripts/generate_token.go -user=11111111-1111-1111-1111-111111111111 -roles=user,auditor -tenant=11111111-1111-1111-1111-111111111111 -exp=1
+	@go run scripts/generate_token.go -user=11111111-1111-1111-1111-111111111111 -roles=admin,user,auditor -tenant=11111111-1111-1111-1111-111111111111
+
+swag:
+	@echo '$(shell swag --version)'
+	@swag init -g ./cmd/api/main.go --parseVendor true --exclude db,deployment,scripts,vendor
+	@swagger2openapi ./docs/swagger.yaml -o ./docs/openapi.yaml
+	@swagger2openapi ./docs/swagger.json -o ./docs/openapi.json

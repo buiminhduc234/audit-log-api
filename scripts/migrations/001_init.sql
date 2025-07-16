@@ -14,9 +14,10 @@ CREATE TABLE IF NOT EXISTS tenants (
 -- Create audit_logs table optimized for time-series data
 CREATE TABLE IF NOT EXISTS audit_logs (
     -- Primary identification
-    id UUID NOT NULL,
+    id UUID DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    
+    message TEXT,
+
     -- User information
     user_id TEXT,
     session_id TEXT,
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     resource_type TEXT,
     resource_id TEXT,
     severity TEXT NOT NULL DEFAULT 'INFO',
+
     
     -- State changes
     before_state JSONB,

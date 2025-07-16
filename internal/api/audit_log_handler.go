@@ -8,8 +8,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/buiminhduc234/audit-log-api/internal/api/dto"
 	"github.com/buiminhduc234/audit-log-api/internal/domain"
 	"github.com/buiminhduc234/audit-log-api/internal/service"
+	"github.com/buiminhduc234/audit-log-api/pkg/utils"
 )
 
 type AuditLogHandler struct {
@@ -21,102 +23,114 @@ func NewAuditLogHandler(service *service.AuditLogService) *AuditLogHandler {
 	return &AuditLogHandler{service: service}
 }
 
-// CreateLog godoc
-// @Summary Create a new audit log
+// CreateLog Create a new audit log entry
+// @Summary Create audit log
 // @Description Create a new audit log entry
-// @Tags audit-logs
-// @Accept json
+// @Tags    audit_logs
+// @Accept  json
 // @Produce json
-// @Param log body domain.AuditLog true "Audit log object"
-// @Success 201 {object} domain.AuditLog
-// @Failure 400 {object} ErrorResponse
-// @Router /logs [post]
+// @Param   body body dto.CreateAuditLogRequest true "Audit log object"
+// @Success 201 {object}
+// @Failure 400 {object} dto.Error
+// @Failure 401 {object} dto.Error
+// @Failure 500 {object} dto.Error
+// @Router  /logs [post]
 func (h *AuditLogHandler) CreateLog(c *gin.Context) {
-	var log domain.AuditLog
+	var log dto.CreateAuditLogRequest
 	if err := c.ShouldBindJSON(&log); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, dto.Error{Error: err.Error()})
 		return
 	}
 
-	if err := h.service.Create(h.RequestCtx(c), &log); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := h.service.Create(h.RequestCtx(c), log); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, log)
+	c.JSON(http.StatusCreated, gin.H{"message": "Log created successfully"})
 }
 
-// BulkCreateLogs godoc
-// @Summary Create multiple audit logs
+// BulkCreateLogs Create multiple audit log entries
+// @Summary Bulk create audit logs
 // @Description Create multiple audit log entries in a single request
-// @Tags audit-logs
-// @Accept json
+// @Tags    audit_logs
+// @Accept  json
 // @Produce json
-// @Param logs body []domain.AuditLog true "Array of audit log objects"
-// @Success 201 {array} domain.AuditLog
-// @Failure 400 {object} ErrorResponse
-// @Router /logs/bulk [post]
+// @Param   body body []dto.CreateAuditLogRequest true "Array of audit log objects"
+// @Success 201 {object}
+// @Failure 400 {object} dto.Error
+// @Failure 401 {object} dto.Error
+// @Failure 500 {object} dto.Error
+// @Router  /logs/bulk [post]
 func (h *AuditLogHandler) BulkCreateLogs(c *gin.Context) {
-	var logs []domain.AuditLog
+	var logs []dto.CreateAuditLogRequest
 	if err := c.ShouldBindJSON(&logs); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, dto.Error{Error: err.Error()})
 		return
 	}
 
 	if err := h.service.BulkCreate(h.RequestCtx(c), logs); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, logs)
+	c.JSON(http.StatusCreated, gin.H{"message": "Logs created successfully"})
 }
 
-// GetLog godoc
-// @Summary Get a specific audit log
-// @Description Get an audit log by ID
-// @Tags audit-logs
+// GetLog Get a specific audit log by ID
+// @Summary Get audit log
+// @Description Get an audit log entry by its ID
+// @Tags    audit_logs
 // @Produce json
-// @Param id path string true "Log ID"
-// @Success 200 {object} domain.AuditLog
-// @Failure 404 {object} ErrorResponse
-// @Router /logs/{id} [get]
+// @Param   id path string true "Log ID"
+// @Success 200 {object} dto.AuditLogResponse
+// @Failure 401 {object} dto.Error
+// @Failure 404 {object} dto.Error
+// @Failure 500 {object} dto.Error
+// @Router  /logs/{id} [get]
 func (h *AuditLogHandler) GetLog(c *gin.Context) {
 	id := c.Param("id")
 
 	log, err := h.service.GetByID(h.RequestCtx(c), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
 	}
 	if log == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Log not found"})
+		c.JSON(http.StatusNotFound, dto.Error{Error: "Log not found"})
 		return
 	}
 
 	c.JSON(http.StatusOK, log)
 }
 
-// ListLogs godoc
+// ListLogs Get a list of audit logs with filtering
 // @Summary List audit logs
 // @Description Get a list of audit logs with filtering options
-// @Tags audit-logs
+// @Tags    audit_logs
 // @Produce json
-// @Param page query int false "Page number"
-// @Param page_size query int false "Page size"
-// @Param user_id query string false "Filter by user ID"
-// @Param action query string false "Filter by action"
-// @Param resource query string false "Filter by resource"
-// @Param severity query string false "Filter by severity"
-// @Param start_time query string false "Filter by start time (RFC3339)"
-// @Param end_time query string false "Filter by end time (RFC3339)"
-// @Success 200 {array} domain.AuditLog
-// @Router /logs [get]
+// @Param   page query int false "Page number"
+// @Param   page_size query int false "Page size"
+// @Param   user_id query string false "Filter by user ID"
+// @Param   action query string false "Filter by action"
+// @Param   resource_type query string false "Filter by resource type"
+// @Param   severity query string false "Filter by severity"
+// @Param   start_time query string false "Filter by start time (RFC3339)"
+// @Param   end_time query string false "Filter by end time (RFC3339)"
+// @Success 200 {array} dto.AuditLogResponse
+// @Failure 401 {object} dto.Error
+// @Failure 500 {object} dto.Error
+// @Router  /logs [get]
 func (h *AuditLogHandler) ListLogs(c *gin.Context) {
 	filter := &domain.AuditLogFilter{
 		UserID:       c.Query("user_id"),
 		Action:       c.Query("action"),
 		ResourceType: c.Query("resource_type"),
 		Severity:     c.Query("severity"),
+		SessionID:    c.Query("session_id"),
+		IPAddress:    c.Query("ip_address"),
+		UserAgent:    c.Query("user_agent"),
+		Message:      c.Query("message"),
 	}
 
 	// Parse pagination
@@ -133,83 +147,81 @@ func (h *AuditLogHandler) ListLogs(c *gin.Context) {
 
 	// Parse time filters
 	if startTime := c.Query("start_time"); startTime != "" {
-		if t, err := time.Parse(time.RFC3339, startTime); err == nil {
-			filter.StartTime = t
+		t, err := utils.ParseUserTime(startTime, false)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, dto.Error{
+				Error: err.Error(),
+			})
+			return
 		}
+		filter.StartTime = t
 	}
 	if endTime := c.Query("end_time"); endTime != "" {
-		if t, err := time.Parse(time.RFC3339, endTime); err == nil {
-			filter.EndTime = t
+		t, err := utils.ParseUserTime(endTime, true)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, dto.Error{
+				Error: err.Error(),
+			})
+			return
 		}
+		filter.EndTime = t
 	}
 
 	logs, err := h.service.List(h.RequestCtx(c), filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, logs)
 }
 
-// DeleteLog godoc
-// @Summary Delete an audit log
-// @Description Delete an audit log by ID
-// @Tags audit-logs
-// @Param id path string true "Log ID"
-// @Success 204 "No Content"
-// @Failure 404 {object} ErrorResponse
-// @Router /logs/{id} [delete]
-func (h *AuditLogHandler) DeleteLog(c *gin.Context) {
-	id := c.Param("id")
-
-	if err := h.service.Delete(h.RequestCtx(c), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
-}
-
-// DeleteOldLogs godoc
-// @Summary Delete old audit logs
+// DeleteOldLogs Delete audit logs older than retention period
+// @Summary Delete old logs
 // @Description Delete audit logs older than specified days
-// @Tags audit-logs
-// @Param days query int true "Number of days to retain"
+// @Tags    audit_logs
+// @Produce json
+// @Param   days query int true "Number of days to retain"
 // @Success 204 "No Content"
-// @Router /logs/cleanup [delete]
+// @Failure 401 {object} dto.Error
+// @Failure 500 {object} dto.Error
+// @Router  /logs/cleanup [delete]
 func (h *AuditLogHandler) DeleteOldLogs(c *gin.Context) {
 	days := 90 // Default to 90 days
 
 	if err := h.service.DeleteOlderThan(h.RequestCtx(c), days); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
 	}
 
 	c.Status(http.StatusNoContent)
 }
 
-// ExportLogs godoc
+// ExportLogs Export audit logs in JSON or CSV format
 // @Summary Export audit logs
-// @Description Export audit logs in JSON or CSV format
-// @Tags audit-logs
+// @Description Export audit logs with filtering options in JSON or CSV format
+// @Tags    audit_logs
 // @Produce json,text/csv
-// @Param format query string false "Export format (json or csv)" default(json)
-// @Param filter query domain.AuditLogFilter false "Filter parameters"
+// @Param   format query string false "Export format (json or csv)" default(json)
+// @Param   user_id query string false "Filter by user ID"
+// @Param   action query string false "Filter by action"
+// @Param   resource_type query string false "Filter by resource type"
+// @Param   severity query string false "Filter by severity"
+// @Param   start_time query string false "Filter by start time (RFC3339)"
+// @Param   end_time query string false "Filter by end time (RFC3339)"
 // @Success 200 {file} file
-// @Failure 400 {object} ErrorResponse
-// @Router /logs/export [get]
+// @Failure 400 {object} dto.Error
+// @Failure 401 {object} dto.Error
+// @Failure 500 {object} dto.Error
+// @Router  /logs/export [get]
 func (h *AuditLogHandler) ExportLogs(c *gin.Context) {
 	format := c.DefaultQuery("format", "json")
 	if format != "json" && format != "csv" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid format. Must be 'json' or 'csv'"})
+		c.JSON(http.StatusBadRequest, dto.Error{Error: "Invalid format. Must be 'json' or 'csv'"})
 		return
 	}
 
-	// Get tenant ID from context
-	tenantID, _ := c.Get("tenant_id")
 	filter := &domain.AuditLogFilter{
-		TenantID:     tenantID.(string),
 		UserID:       c.Query("user_id"),
 		Action:       c.Query("action"),
 		ResourceType: c.Query("resource_type"),
@@ -230,7 +242,7 @@ func (h *AuditLogHandler) ExportLogs(c *gin.Context) {
 
 	logs, err := h.service.List(h.RequestCtx(c), filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
 	}
 
@@ -256,15 +268,17 @@ func (h *AuditLogHandler) ExportLogs(c *gin.Context) {
 	}
 }
 
-// GetStats godoc
-// @Summary Get audit log statistics
+// GetStats Get audit log statistics
+// @Summary Get log statistics
 // @Description Get statistics about audit logs including counts by action, severity, and resource
-// @Tags audit-logs
+// @Tags    audit_logs
 // @Produce json
-// @Param start_time query string false "Filter by start time (RFC3339)"
-// @Param end_time query string false "Filter by end time (RFC3339)"
-// @Success 200 {object} domain.AuditLogStats
-// @Router /logs/stats [get]
+// @Param   start_time query string false "Filter by start time (RFC3339)"
+// @Param   end_time query string false "Filter by end time (RFC3339)"
+// @Success 200 {object} dto.GetAuditLogStatsResponse
+// @Failure 401 {object} dto.Error
+// @Failure 500 {object} dto.Error
+// @Router  /logs/stats [get]
 func (h *AuditLogHandler) GetStats(c *gin.Context) {
 	filter := &domain.AuditLogFilter{}
 
@@ -282,58 +296,9 @@ func (h *AuditLogHandler) GetStats(c *gin.Context) {
 
 	stats, err := h.service.GetStats(h.RequestCtx(c), filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, stats)
-}
-
-// CreateBulkLogs godoc
-// @Summary Create multiple audit logs
-// @Description Create multiple audit log entries in a single request
-// @Tags audit-logs
-// @Accept json
-// @Produce json
-// @Param logs body []domain.AuditLog true "Array of audit log objects"
-// @Success 201 {array} domain.AuditLog
-// @Failure 400 {object} ErrorResponse
-// @Router /logs/bulk [post]
-func (h *AuditLogHandler) CreateBulkLogs(c *gin.Context) {
-	var logs []domain.AuditLog
-	if err := c.ShouldBindJSON(&logs); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := h.service.BulkCreate(h.RequestCtx(c), logs); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, logs)
-}
-
-// CleanupLogs godoc
-// @Summary Delete old audit logs
-// @Description Delete audit logs older than specified retention period
-// @Tags audit-logs
-// @Param days query int false "Number of days to retain" default(90)
-// @Success 204 "No Content"
-// @Router /logs/cleanup [delete]
-func (h *AuditLogHandler) CleanupLogs(c *gin.Context) {
-	days := 90 // Default retention period
-
-	if daysStr := c.Query("days"); daysStr != "" {
-		if d, err := strconv.Atoi(daysStr); err == nil && d > 0 {
-			days = d
-		}
-	}
-
-	if err := h.service.DeleteOlderThan(h.RequestCtx(c), days); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
 }

@@ -23,12 +23,6 @@ func (r *AuditLogRepository) Create(ctx context.Context, log *domain.AuditLog) e
 		log.ID = uuid.New().String()
 	}
 
-	tenantID, err := utils.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	log.TenantID = tenantID
-
 	return r.db.WithContext(ctx).Create(log).Error
 }
 

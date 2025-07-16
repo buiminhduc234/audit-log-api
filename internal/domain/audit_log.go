@@ -33,6 +33,7 @@ type AuditLog struct {
 	Action       string          `gorm:"type:text;not null" json:"action"`
 	ResourceType string          `gorm:"type:text" json:"resource_type"`
 	ResourceID   string          `gorm:"type:text" json:"resource_id"`
+	Message      string          `gorm:"type:text" json:"message"`
 	Severity     string          `gorm:"type:text;not null;default:'INFO'" json:"severity"`
 	BeforeState  json.RawMessage `gorm:"type:jsonb" json:"before_state,omitempty"`
 	AfterState   json.RawMessage `gorm:"type:jsonb" json:"after_state,omitempty"`
@@ -51,13 +52,16 @@ func (AuditLog) TableName() string {
 type AuditLogFilter struct {
 	TenantID     string    `json:"tenant_id"`
 	UserID       string    `json:"user_id"`
+	SessionID    string    `json:"session_id"`
+	IPAddress    string    `json:"ip_address"`
+	UserAgent    string    `json:"user_agent"`
 	Action       string    `json:"action"`
 	ResourceType string    `json:"resource_type"`
 	ResourceID   string    `json:"resource_id"`
+	Message      string    `json:"message"`
 	Severity     string    `json:"severity"`
 	StartTime    time.Time `json:"start_time"`
 	EndTime      time.Time `json:"end_time"`
-	SearchQuery  string    `json:"search_query"`
 	Page         int       `json:"page"`
 	PageSize     int       `json:"page_size"`
 	Limit        int       `json:"limit"`

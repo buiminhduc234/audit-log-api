@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/buiminhduc234/audit-log-api/internal/domain"
@@ -17,11 +16,11 @@ func NewTenantRepository(db *gorm.DB) *TenantRepository {
 	return &TenantRepository{db: db}
 }
 
-func (r *TenantRepository) Create(ctx context.Context, tenant *domain.Tenant) error {
-	if tenant.ID == "" {
-		tenant.ID = uuid.New().String()
+func (r *TenantRepository) Create(ctx context.Context, tenant *domain.Tenant) (*domain.Tenant, error) {
+	if err := r.db.WithContext(ctx).Create(tenant).Error; err != nil {
+		return nil, err
 	}
-	return r.db.WithContext(ctx).Create(tenant).Error
+	return tenant, nil
 }
 
 func (r *TenantRepository) GetByID(ctx context.Context, id string) (*domain.Tenant, error) {

@@ -16,15 +16,33 @@ import (
 	"github.com/buiminhduc234/audit-log-api/internal/api"
 	"github.com/buiminhduc234/audit-log-api/internal/config"
 	"github.com/buiminhduc234/audit-log-api/internal/middleware"
-	"github.com/buiminhduc234/audit-log-api/internal/repository/postgres"
+	"github.com/buiminhduc234/audit-log-api/internal/repository/composite"
 	"github.com/buiminhduc234/audit-log-api/internal/service"
+	"github.com/buiminhduc234/audit-log-api/internal/service/queue"
+	"github.com/buiminhduc234/audit-log-api/pkg/logger"
 )
 
+// @title           Audit log Swagger API
+// @version         1.0
+// @description     This is a Audit log swagger server.
+
+// @host      localhost:10000
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
+// @externalDocs.description  OpenAPI
+// @externalDocs.url          https://swagger.io/resources/open-api/
 func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: .env file not found")
 	}
+
+	// Initialize logger
+	appLogger := logger.NewLogger(os.Getenv("APP_ENV"))
 
 	// Initialize config
 	cfg := &config.Config{
@@ -36,15 +54,30 @@ func main() {
 	// Initialize database
 	db, err := config.NewDatabase()
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		appLogger.Fatal("Failed to connect to database", err)
 	}
 
+	// Initialize OpenSearch
+	osConfig := config.DefaultOpenSearchConfig()
+	osClient, err := osConfig.GetClient()
+	if err != nil {
+		appLogger.Fatal("Failed to connect to OpenSearch", err)
+	}
+
+	// Initialize SQS
+	sqsConfig := config.DefaultSQSConfig()
+	sqsClient, err := sqsConfig.GetClient()
+	if err != nil {
+		appLogger.Fatal("Failed to connect to SQS", err)
+	}
+	sqsService := queue.NewSQSService(sqsClient, sqsConfig)
+
 	// Initialize repositories
-	repo := postgres.NewPostgresRepository(db)
+	repo := composite.NewCompositeRepository(db, osClient, osConfig)
 
 	// Initialize services
 	tenantService := service.NewTenantService(repo)
-	auditLogService := service.NewAuditLogService(repo)
+	auditLogService := service.NewAuditLogService(repo, sqsService)
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(cfg)
@@ -79,7 +112,7 @@ func main() {
 	// Graceful shutdown
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			appLogger.Fatal("Failed to start server", err)
 		}
 	}()
 
@@ -87,13 +120,15 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down server...")
+	appLogger.Info("Shutting down server...")
 
+	// Shutdown the HTTP server
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
+		appLogger.Fatal("Server forced to shutdown", err)
 	}
 
-	log.Println("Server exiting")
+	appLogger.Info("Server exiting")
+	appLogger.Sync()
 }

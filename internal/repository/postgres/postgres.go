@@ -12,7 +12,7 @@ type postgresRepository struct {
 	tenantRepo   repository.TenantRepository
 }
 
-func NewPostgresRepository(db *gorm.DB) repository.Repository {
+func NewPostgresRepository(db *gorm.DB) repository.PostgresRepository {
 	return &postgresRepository{
 		db:           db,
 		auditLogRepo: NewAuditLogRepository(db),
