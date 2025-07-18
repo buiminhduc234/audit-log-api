@@ -39,6 +39,14 @@ func (l *Logger) Infof(format string, args ...interface{}) {
 	l.Logger.Info(fmt.Sprintf(format, args...))
 }
 
+func (l *Logger) Warn(msg string, fields ...zap.Field) {
+	l.Logger.Warn(msg, fields...)
+}
+
+func (l *Logger) Warnf(format string, args ...interface{}) {
+	l.Logger.Warn(fmt.Sprintf(format, args...))
+}
+
 func (l *Logger) Error(msg string, err error, fields ...zap.Field) {
 	fields = append(fields, zap.Error(err))
 	l.Logger.Error(msg, fields...)

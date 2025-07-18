@@ -11,9 +11,10 @@ type AuditLogRepository interface {
 	Create(ctx context.Context, log *domain.AuditLog) error
 	GetByID(ctx context.Context, id string) (*domain.AuditLog, error)
 	List(ctx context.Context, filter domain.AuditLogFilter) ([]domain.AuditLog, error)
-	Delete(ctx context.Context, id string) error
-	DeleteOlderThan(ctx context.Context, days int) error
+	DeleteBeforeDate(ctx context.Context, tenantID string, beforeDate time.Time) (int64, error)
 	BulkCreate(ctx context.Context, logs []domain.AuditLog) error
+	GetRecentLogs(ctx context.Context, tenantID string, since time.Time) ([]domain.AuditLog, error)
+	GetStats(ctx context.Context, filter domain.AuditLogFilter) (*domain.AuditLogStats, error)
 }
 
 type OpenSearchRepository interface {
@@ -27,13 +28,11 @@ type OpenSearchRepository interface {
 type TenantRepository interface {
 	Create(ctx context.Context, tenant *domain.Tenant) (*domain.Tenant, error)
 	GetByID(ctx context.Context, id string) (*domain.Tenant, error)
-	GetByAPIKey(ctx context.Context, apiKey string) (*domain.Tenant, error)
 	Update(ctx context.Context, tenant *domain.Tenant) error
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context) ([]domain.Tenant, error)
 }
 
-// PostgresRepository represents the PostgreSQL-specific repository interface
 type PostgresRepository interface {
 	AuditLog() AuditLogRepository
 	Tenant() TenantRepository

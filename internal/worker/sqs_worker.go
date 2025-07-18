@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/buiminhduc234/audit-log-api/internal/config"
 	"github.com/buiminhduc234/audit-log-api/internal/repository/opensearch"
 	"github.com/buiminhduc234/audit-log-api/internal/service/queue"
 	"github.com/buiminhduc234/audit-log-api/pkg/logger"
@@ -81,7 +82,11 @@ func (w *SQSWorker) runWorker(workerID int) {
 }
 
 func (w *SQSWorker) processMessages(ctx context.Context) error {
-	messages, err := w.sqsService.ReceiveMessages(ctx, w.maxMessages, w.waitTime)
+	// Get index queue URL from config
+	config := config.DefaultSQSConfig()
+	indexQueueURL := config.IndexQueueURL
+
+	messages, err := w.sqsService.ReceiveMessages(ctx, indexQueueURL, w.maxMessages, w.waitTime)
 	if err != nil {
 		return fmt.Errorf("failed to receive messages: %w", err)
 	}
@@ -93,7 +98,7 @@ func (w *SQSWorker) processMessages(ctx context.Context) error {
 		}
 
 		// Only delete the message if processing was successful
-		if err := w.sqsService.DeleteMessage(ctx, msg.ReceiptHandle); err != nil {
+		if err := w.sqsService.DeleteMessage(ctx, indexQueueURL, msg.ReceiptHandle); err != nil {
 			w.logger.Errorf("Failed to delete message: %v", err)
 		}
 	}
@@ -116,13 +121,6 @@ func (w *SQSWorker) processMessage(ctx context.Context, msg queue.Message) error
 			return fmt.Errorf("empty logs array for BULK_INDEX message")
 		}
 		return w.osRepository.BulkIndex(ctx, msg.Logs)
-
-	case queue.MessageTypeDelete:
-		if msg.LogID == "" {
-			return fmt.Errorf("empty log ID for DELETE message")
-		}
-		return w.osRepository.Delete(ctx, msg.TenantID, msg.LogID)
-
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}

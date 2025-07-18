@@ -12,12 +12,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
+	"github.com/buiminhduc234/audit-log-api/docs"
 	"github.com/buiminhduc234/audit-log-api/internal/api"
 	"github.com/buiminhduc234/audit-log-api/internal/config"
 	"github.com/buiminhduc234/audit-log-api/internal/middleware"
 	"github.com/buiminhduc234/audit-log-api/internal/repository/composite"
 	"github.com/buiminhduc234/audit-log-api/internal/service"
+	"github.com/buiminhduc234/audit-log-api/internal/service/pubsub"
 	"github.com/buiminhduc234/audit-log-api/internal/service/queue"
 	"github.com/buiminhduc234/audit-log-api/pkg/logger"
 )
@@ -44,18 +48,18 @@ func main() {
 	// Initialize logger
 	appLogger := logger.NewLogger(os.Getenv("APP_ENV"))
 
-	// Initialize config
-	cfg := &config.Config{
-		ServerPort:         10000,
-		JWTSecretKey:       os.Getenv("JWT_SECRET_KEY"),
-		JWTExpirationHours: 24,
+	cfg, err := config.Load()
+	if err != nil {
+		appLogger.Fatal("Failed to load config", err)
 	}
 
-	// Initialize database
-	db, err := config.NewDatabase()
+	dbConnections, err := config.NewDatabaseConnections()
 	if err != nil {
 		appLogger.Fatal("Failed to connect to database", err)
 	}
+	defer dbConnections.Close()
+
+	appLogger.Info("Database connections established - writer and reader connected")
 
 	// Initialize OpenSearch
 	osConfig := config.DefaultOpenSearchConfig()
@@ -63,6 +67,17 @@ func main() {
 	if err != nil {
 		appLogger.Fatal("Failed to connect to OpenSearch", err)
 	}
+
+	// Initialize Redis
+	redisConfig := config.DefaultRedisConfig()
+	redisClient, err := redisConfig.GetClient()
+	if err != nil {
+		appLogger.Fatal("Failed to connect to Redis", err)
+	}
+	defer redisClient.Close()
+
+	// Initialize Redis pub/sub
+	redisPubSub := pubsub.NewRedisPubSub(redisClient, appLogger)
 
 	// Initialize SQS
 	sqsConfig := config.DefaultSQSConfig()
@@ -72,8 +87,7 @@ func main() {
 	}
 	sqsService := queue.NewSQSService(sqsClient, sqsConfig)
 
-	// Initialize repositories
-	repo := composite.NewCompositeRepository(db, osClient, osConfig)
+	repo := composite.NewCompositeRepository(dbConnections, osClient, osConfig)
 
 	// Initialize services
 	tenantService := service.NewTenantService(repo)
@@ -81,18 +95,35 @@ func main() {
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(cfg)
-	rateLimitMiddleware := middleware.NewRateLimitMiddleware()
 
 	// Initialize server
 	server := api.NewServer(
 		tenantService,
 		auditLogService,
 		authMiddleware,
-		rateLimitMiddleware,
+		appLogger,
+		redisPubSub,
 	)
+
+	// Wire up WebSocket broadcaster
+	auditLogService.SetWebSocketBroadcaster(server.GetWebSocketHandler())
+
+	// Start WebSocket hub
+	server.StartWebSocketHub()
 
 	// Initialize router
 	router := gin.Default()
+
+	// Swagger documentation endpoint
+	docs.SwaggerInfo.Title = "Audit Log API"
+	docs.SwaggerInfo.Description = "A comprehensive audit logging API system"
+	docs.SwaggerInfo.Version = "1.0"
+	docs.SwaggerInfo.Host = fmt.Sprintf("localhost:%d", cfg.ServerPort)
+	docs.SwaggerInfo.BasePath = "/api/v1"
+	docs.SwaggerInfo.Schemes = []string{"http"}
+
+	// Swagger UI endpoint
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
@@ -100,8 +131,8 @@ func main() {
 	})
 
 	// Setup API routes
-	api := router.Group("/api/v1")
-	server.SetupRoutes(api)
+	apiGroup := router.Group("/api/v1")
+	server.SetupRoutes(apiGroup)
 
 	// Start server
 	srv := &http.Server{

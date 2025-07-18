@@ -6,7 +6,6 @@ import (
 	"github.com/buiminhduc234/audit-log-api/internal/repository/opensearch"
 	"github.com/buiminhduc234/audit-log-api/internal/repository/postgres"
 	opensearchclient "github.com/opensearch-project/opensearch-go/v2"
-	"gorm.io/gorm"
 )
 
 type compositeRepository struct {
@@ -14,14 +13,13 @@ type compositeRepository struct {
 	osRepo       repository.OpenSearchRepository
 }
 
-func NewCompositeRepository(db *gorm.DB, osClient *opensearchclient.Client, osConfig *config.OpenSearchConfig) repository.Repository {
+func NewCompositeRepository(dbConnections *config.DatabaseConnections, osClient *opensearchclient.Client, osConfig *config.OpenSearchConfig) repository.Repository {
 	return &compositeRepository{
-		postgresRepo: postgres.NewPostgresRepository(db),
+		postgresRepo: postgres.NewPostgresRepository(dbConnections),
 		osRepo:       opensearch.NewRepository(osClient, osConfig),
 	}
 }
 
-// Implement PostgresRepository interface
 func (r *compositeRepository) AuditLog() repository.AuditLogRepository {
 	return r.postgresRepo.AuditLog()
 }
@@ -30,7 +28,6 @@ func (r *compositeRepository) Tenant() repository.TenantRepository {
 	return r.postgresRepo.Tenant()
 }
 
-// Implement OpenSearch access
 func (r *compositeRepository) OpenSearch() repository.OpenSearchRepository {
 	return r.osRepo
 }

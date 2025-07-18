@@ -41,7 +41,7 @@ func (m *AuthMiddleware) JWTAuth() gin.HandlerFunc {
 		token := bearerToken[1]
 		claims := jwt.MapClaims{}
 
-		_, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (interface{}, error) {
+		_, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (any, error) {
 			return []byte(m.config.JWTSecretKey), nil
 		})
 
@@ -52,6 +52,7 @@ func (m *AuthMiddleware) JWTAuth() gin.HandlerFunc {
 		}
 
 		// Set claims in context
+		c.Set(string(utils.TenantIDKey), claims["tenant_id"])
 		c.Set(string(utils.ClaimsKey), claims)
 		c.Next()
 	}
@@ -101,7 +102,7 @@ func hasRole(claims jwt.MapClaims, requiredRole string) bool {
 		return false
 	}
 
-	roles, ok := rolesInterface.([]interface{})
+	roles, ok := rolesInterface.([]any)
 	if !ok {
 		return false
 	}

@@ -39,10 +39,6 @@ func (s *TenantService) GetByID(ctx context.Context, id string) (*domain.Tenant,
 	return s.repo.Tenant().GetByID(ctx, id)
 }
 
-func (s *TenantService) GetByAPIKey(ctx context.Context, apiKey string) (*domain.Tenant, error) {
-	return s.repo.Tenant().GetByAPIKey(ctx, apiKey)
-}
-
 func (s *TenantService) Update(ctx context.Context, tenant *domain.Tenant) error {
 	tenant.UpdatedAt = time.Now()
 	return s.repo.Tenant().Update(ctx, tenant)

@@ -74,7 +74,7 @@ services:
     image: localstack/localstack:latest
     container_name: audit_log_localstack
     environment:
-      - SERVICES=sqs
+      - SERVICES=sqs,s3
       - DEBUG=1
       - AWS_DEFAULT_REGION=us-east-1
       - DOCKER_HOST=unix:///var/run/docker.sock
@@ -85,14 +85,17 @@ services:
       - "4566:4566"
     volumes:
       - localstack_data:/var/lib/localstack
-      - "/var/run/docker.sock:/var/run/docker.sock"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
 
 volumes:
   postgres_data:
   opensearch_data:
-  localstack_data: 
+  localstack_data:
+  redis_data: 

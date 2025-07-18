@@ -18,15 +18,18 @@ type MessageType string
 const (
 	MessageTypeIndex     MessageType = "INDEX"
 	MessageTypeBulkIndex MessageType = "BULK_INDEX"
-	MessageTypeDelete    MessageType = "DELETE"
+	MessageTypeArchive   MessageType = "ARCHIVE"
+	MessageTypeCleanup   MessageType = "CLEANUP"
 )
 
 type Message struct {
 	Type      MessageType       `json:"type"`
 	TenantID  string            `json:"tenant_id"`
 	Logs      []domain.AuditLog `json:"logs,omitempty"`
-	LogID     string            `json:"log_id,omitempty"`
 	Timestamp time.Time         `json:"timestamp"`
+
+	// Fields for archive/cleanup operations
+	BeforeDate time.Time `json:"before_date,omitempty"`
 }
 
 type ReceivedMessage struct {
@@ -35,14 +38,18 @@ type ReceivedMessage struct {
 }
 
 type SQSService struct {
-	client   *sqs.Client
-	queueURL string
+	client          *sqs.Client
+	indexQueueURL   string
+	archiveQueueURL string
+	cleanupQueueURL string
 }
 
 func NewSQSService(client *sqs.Client, config *config.SQSConfig) *SQSService {
 	return &SQSService{
-		client:   client,
-		queueURL: config.QueueURL,
+		client:          client,
+		indexQueueURL:   config.IndexQueueURL,
+		archiveQueueURL: config.ArchiveQueueURL,
+		cleanupQueueURL: config.CleanupQueueURL,
 	}
 }
 
@@ -51,10 +58,10 @@ func (s *SQSService) SendIndexMessage(ctx context.Context, log *domain.AuditLog)
 		Type:      MessageTypeIndex,
 		TenantID:  log.TenantID,
 		Logs:      []domain.AuditLog{*log},
-		Timestamp: time.Now(),
+		Timestamp: log.Timestamp,
 	}
 
-	return s.sendMessage(ctx, msg)
+	return s.sendMessage(ctx, msg, s.indexQueueURL)
 }
 
 func (s *SQSService) SendBulkIndexMessage(ctx context.Context, logs []domain.AuditLog) error {
@@ -66,24 +73,35 @@ func (s *SQSService) SendBulkIndexMessage(ctx context.Context, logs []domain.Aud
 		Type:      MessageTypeBulkIndex,
 		TenantID:  logs[0].TenantID,
 		Logs:      logs,
-		Timestamp: time.Now(),
+		Timestamp: logs[0].Timestamp,
 	}
 
-	return s.sendMessage(ctx, msg)
+	return s.sendMessage(ctx, msg, s.indexQueueURL)
 }
 
-func (s *SQSService) SendDeleteMessage(ctx context.Context, tenantID, logID string) error {
+func (s *SQSService) SendArchiveMessage(ctx context.Context, tenantID string, beforeDate time.Time) error {
 	msg := Message{
-		Type:      MessageTypeDelete,
-		TenantID:  tenantID,
-		LogID:     logID,
-		Timestamp: time.Now(),
+		Type:       MessageTypeArchive,
+		TenantID:   tenantID,
+		BeforeDate: beforeDate,
+		Timestamp:  time.Now(),
 	}
 
-	return s.sendMessage(ctx, msg)
+	return s.sendMessage(ctx, msg, s.archiveQueueURL)
 }
 
-func (s *SQSService) sendMessage(ctx context.Context, msg Message) error {
+func (s *SQSService) SendCleanupMessage(ctx context.Context, tenantID string, beforeDate time.Time) error {
+	msg := Message{
+		Type:       MessageTypeCleanup,
+		TenantID:   tenantID,
+		BeforeDate: beforeDate,
+		Timestamp:  time.Now(),
+	}
+
+	return s.sendMessage(ctx, msg, s.cleanupQueueURL)
+}
+
+func (s *SQSService) sendMessage(ctx context.Context, msg Message, queueURL string) error {
 	msgBody, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
@@ -91,7 +109,7 @@ func (s *SQSService) sendMessage(ctx context.Context, msg Message) error {
 
 	input := &sqs.SendMessageInput{
 		MessageBody: aws.String(string(msgBody)),
-		QueueUrl:    aws.String(s.queueURL),
+		QueueUrl:    aws.String(queueURL),
 	}
 
 	_, err = s.client.SendMessage(ctx, input)
@@ -102,9 +120,9 @@ func (s *SQSService) sendMessage(ctx context.Context, msg Message) error {
 	return nil
 }
 
-func (s *SQSService) ReceiveMessages(ctx context.Context, maxMessages int32, waitTimeSeconds int32) ([]ReceivedMessage, error) {
+func (s *SQSService) ReceiveMessages(ctx context.Context, queueURL string, maxMessages int32, waitTimeSeconds int32) ([]ReceivedMessage, error) {
 	input := &sqs.ReceiveMessageInput{
-		QueueUrl:            aws.String(s.queueURL),
+		QueueUrl:            aws.String(queueURL),
 		MaxNumberOfMessages: maxMessages,
 		WaitTimeSeconds:     waitTimeSeconds,
 	}
@@ -129,9 +147,9 @@ func (s *SQSService) ReceiveMessages(ctx context.Context, maxMessages int32, wai
 	return messages, nil
 }
 
-func (s *SQSService) DeleteMessage(ctx context.Context, receiptHandle *string) error {
+func (s *SQSService) DeleteMessage(ctx context.Context, queueURL string, receiptHandle *string) error {
 	input := &sqs.DeleteMessageInput{
-		QueueUrl:      aws.String(s.queueURL),
+		QueueUrl:      aws.String(queueURL),
 		ReceiptHandle: receiptHandle,
 	}
 

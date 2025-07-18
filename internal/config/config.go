@@ -14,12 +14,12 @@ type Config struct {
 func Load() (*Config, error) {
 	serverPort, _ := strconv.Atoi(os.Getenv("SERVER_PORT"))
 	if serverPort == 0 {
-		serverPort = 8080 // default port
+		serverPort = 10000
 	}
 
 	jwtExpirationHours, _ := strconv.Atoi(os.Getenv("JWT_EXPIRATION_HOURS"))
 	if jwtExpirationHours == 0 {
-		jwtExpirationHours = 24 // default expiration
+		jwtExpirationHours = 24
 	}
 
 	return &Config{

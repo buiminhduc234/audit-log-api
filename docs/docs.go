@@ -15,6 +15,62 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/logs/cleanup": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Enqueues an archive job message to SQS for logs before the specified date",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audit-logs"
+                ],
+                "summary": "Schedule cleanup operation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cleanup logs before this date (ISO 8601 or YYYY-MM-DD)",
+                        "name": "before_date",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Cleanup operation scheduled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Error"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/logs": {
             "get": {
                 "description": "Get a list of audit logs with filtering options",
@@ -64,15 +120,17 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by start time (RFC3339)",
+                        "description": "Filter by start time (RFC3339 or YYYY-MM-DD)",
                         "name": "start_time",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Filter by end time (RFC3339)",
+                        "description": "Filter by end time (RFC3339 or YYYY-MM-DD)",
                         "name": "end_time",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -81,7 +139,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.AuditLog"
+                                "$ref": "#/definitions/dto.AuditLogResponse"
                             }
                         }
                     },
@@ -118,16 +176,13 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.AuditLog"
+                            "$ref": "#/definitions/dto.CreateAuditLogRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/domain.AuditLog"
-                        }
+                        "description": "Created"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -172,64 +227,20 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.AuditLog"
+                                "$ref": "#/definitions/dto.CreateAuditLogRequest"
                             }
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/domain.AuditLog"
-                            }
-                        }
+                        "description": "Created"
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/dto.Error"
                         }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/dto.Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.Error"
-                        }
-                    }
-                }
-            }
-        },
-        "/logs/cleanup": {
-            "delete": {
-                "description": "Delete audit logs older than specified days",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "audit_logs"
-                ],
-                "summary": "Delete old logs",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Number of days to retain",
-                        "name": "days",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
                     },
                     "401": {
                         "description": "Unauthorized",
@@ -291,15 +302,17 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by start time (RFC3339)",
+                        "description": "Filter by start time (RFC3339 or YYYY-MM-DD)",
                         "name": "start_time",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Filter by end time (RFC3339)",
+                        "description": "Filter by end time (RFC3339 or YYYY-MM-DD)",
                         "name": "end_time",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -343,22 +356,24 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Filter by start time (RFC3339)",
+                        "description": "Filter by start time (RFC3339 or YYYY-MM-DD)",
                         "name": "start_time",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Filter by end time (RFC3339)",
+                        "description": "Filter by end time (RFC3339 or YYYY-MM-DD)",
                         "name": "end_time",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.AuditLogStats"
+                            "$ref": "#/definitions/dto.GetAuditLogStatsResponse"
                         }
                     },
                     "401": {
@@ -399,7 +414,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.AuditLog"
+                            "$ref": "#/definitions/dto.AuditLogResponse"
                         }
                     },
                     "401": {
@@ -439,7 +454,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.Tenant"
+                                "$ref": "#/definitions/dto.CreateTenantResponse"
                             }
                         }
                     },
@@ -472,11 +487,11 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "description": "Tenant object",
-                        "name": "tenant",
+                        "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.Tenant"
+                            "$ref": "#/definitions/dto.CreateTenantRequest"
                         }
                     }
                 ],
@@ -484,7 +499,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/domain.Tenant"
+                            "$ref": "#/definitions/dto.CreateTenantResponse"
                         }
                     },
                     "400": {
@@ -510,52 +525,170 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "domain.AuditLog": {
-            "type": "object"
-        },
-        "domain.AuditLogStats": {
+        "dto.AuditLogResponse": {
             "type": "object",
             "properties": {
-                "action_counts": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
-                    }
+                "action": {
+                    "type": "string",
+                    "example": "CREATE"
                 },
-                "resource_counts": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
-                    }
+                "after_state": {
+                    "type": "string",
+                    "example": "{\\"
                 },
-                "severity_counts": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
-                    }
+                "before_state": {
+                    "type": "string",
+                    "example": "{\\"
                 },
-                "total_logs": {
-                    "type": "integer"
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "ip_address": {
+                    "type": "string",
+                    "example": "192.168.1.1"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "User created successfully"
+                },
+                "metadata": {
+                    "type": "string",
+                    "example": "{\\"
+                },
+                "resource_id": {
+                    "type": "string",
+                    "example": "user123"
+                },
+                "resource_type": {
+                    "type": "string",
+                    "example": "user"
+                },
+                "session_id": {
+                    "type": "string",
+                    "example": "sess_123456"
+                },
+                "severity": {
+                    "type": "string",
+                    "example": "INFO"
+                },
+                "tenant_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2025-07-17T21:20:48Z"
+                },
+                "user_agent": {
+                    "type": "string",
+                    "example": "Mozilla/5.0"
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "123456"
                 }
             }
         },
-        "domain.Tenant": {
+        "dto.CreateAuditLogRequest": {
+            "type": "object",
+            "required": [
+                "action",
+                "message",
+                "resource_id",
+                "resource_type",
+                "severity",
+                "tenant_id",
+                "timestamp"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "example": "CREATE"
+                },
+                "after_state": {
+                    "type": "string",
+                    "example": "{\\"
+                },
+                "before_state": {
+                    "type": "string",
+                    "example": "{\\"
+                },
+                "ip_address": {
+                    "type": "string",
+                    "example": "192.168.1.1"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "User created successfully"
+                },
+                "metadata": {
+                    "type": "string",
+                    "example": "{\\"
+                },
+                "resource_id": {
+                    "type": "string",
+                    "example": "user123"
+                },
+                "resource_type": {
+                    "type": "string",
+                    "example": "user"
+                },
+                "session_id": {
+                    "type": "string",
+                    "example": "sess_123456"
+                },
+                "severity": {
+                    "type": "string",
+                    "example": "INFO"
+                },
+                "tenant_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2025-07-17T21:20:48Z"
+                },
+                "user_agent": {
+                    "type": "string",
+                    "example": "Mozilla/5.0"
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "123456"
+                }
+            }
+        },
+        "dto.CreateTenantRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateTenantResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2025-07-17T21:20:48Z"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
                 },
                 "name": {
-                    "type": "string"
-                },
-                "rate_limit": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "My Tenant"
                 },
                 "updated_at": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2025-07-17T21:20:48Z"
                 }
             }
         },
@@ -565,6 +698,47 @@ const docTemplate = `{
                 "error": {
                     "type": "string",
                     "example": "error message"
+                }
+            }
+        },
+        "dto.GetAuditLogStatsResponse": {
+            "type": "object",
+            "properties": {
+                "action_counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    },
+                    "example": {
+                        "CREATE": 50,
+                        "DELETE": 20,
+                        "UPDATE": 30
+                    }
+                },
+                "resource_counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    },
+                    "example": {
+                        "order": 40,
+                        "user": 60
+                    }
+                },
+                "severity_counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    },
+                    "example": {
+                        "ERROR": 5,
+                        "INFO": 80,
+                        "WARNING": 15
+                    }
+                },
+                "total_logs": {
+                    "type": "integer",
+                    "example": 100
                 }
             }
         }

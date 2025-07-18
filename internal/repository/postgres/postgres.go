@@ -3,20 +3,23 @@ package postgres
 import (
 	"gorm.io/gorm"
 
+	"github.com/buiminhduc234/audit-log-api/internal/config"
 	"github.com/buiminhduc234/audit-log-api/internal/repository"
 )
 
 type postgresRepository struct {
-	db           *gorm.DB
+	writerDB     *gorm.DB
+	readerDB     *gorm.DB
 	auditLogRepo repository.AuditLogRepository
 	tenantRepo   repository.TenantRepository
 }
 
-func NewPostgresRepository(db *gorm.DB) repository.PostgresRepository {
+func NewPostgresRepository(dbConnections *config.DatabaseConnections) repository.PostgresRepository {
 	return &postgresRepository{
-		db:           db,
-		auditLogRepo: NewAuditLogRepository(db),
-		tenantRepo:   NewTenantRepository(db),
+		writerDB:     dbConnections.Writer,
+		readerDB:     dbConnections.Reader,
+		auditLogRepo: NewAuditLogRepository(dbConnections.Writer, dbConnections.Reader),
+		tenantRepo:   NewTenantRepository(dbConnections.Writer, dbConnections.Reader),
 	}
 }
 

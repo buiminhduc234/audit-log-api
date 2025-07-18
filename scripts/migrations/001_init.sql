@@ -29,7 +29,6 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     resource_type TEXT,
     resource_id TEXT,
     severity TEXT NOT NULL DEFAULT 'INFO',
-
     
     -- State changes
     before_state JSONB,
@@ -48,37 +47,54 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 -- Create indexes for audit_logs
-CREATE INDEX idx_audit_logs_tenant_id ON audit_logs(tenant_id, timestamp DESC);
-CREATE INDEX idx_audit_logs_user_id ON audit_logs(tenant_id, user_id, timestamp DESC);
-CREATE INDEX idx_audit_logs_session ON audit_logs(tenant_id, session_id, timestamp DESC);
-CREATE INDEX idx_audit_logs_action ON audit_logs(tenant_id, action, timestamp DESC);
-CREATE INDEX idx_audit_logs_resource ON audit_logs(tenant_id, resource_type, resource_id, timestamp DESC);
-CREATE INDEX idx_audit_logs_severity ON audit_logs(tenant_id, severity, timestamp DESC);
-CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
 CREATE INDEX idx_audit_logs_brin_timestamp ON audit_logs USING BRIN (timestamp);
+
+-- Add specialized indexes for aggregation queries
+CREATE INDEX idx_audit_logs_stats_action ON audit_logs(tenant_id, timestamp, action) INCLUDE (id);
+CREATE INDEX idx_audit_logs_stats_severity ON audit_logs(tenant_id, timestamp, severity) INCLUDE (id);
+CREATE INDEX idx_audit_logs_stats_resource ON audit_logs(tenant_id, timestamp, resource_type) INCLUDE (id) WHERE resource_type IS NOT NULL;
 
 -- Convert audit_logs to hypertable
 SELECT create_hypertable('audit_logs', 'timestamp', chunk_time_interval => INTERVAL '1 day', if_not_exists => TRUE);
 
--- Create a function to clean up old audit logs
--- CREATE OR REPLACE FUNCTION delete_old_audit_logs(retention_days INTEGER)
--- RETURNS void AS $$
--- BEGIN
---     DELETE FROM audit_logs
---     WHERE timestamp < NOW() - (retention_days || ' days')::INTERVAL;
--- END;
--- $$ LANGUAGE plpgsql;
+-- Add compression policy for chunks older than 7 days
+ALTER TABLE audit_logs SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'tenant_id,action,severity,resource_type'
+);
 
--- -- Add a default retention policy (90 days)
--- SELECT add_retention_policy('audit_logs', INTERVAL '90 days', if_not_exists => TRUE);
+SELECT add_compression_policy('audit_logs', INTERVAL '7 days');
+
+-- Create continuous aggregates for real-time stats
+CREATE MATERIALIZED VIEW audit_logs_hourly_stats
+WITH (timescaledb.continuous) AS
+SELECT
+    time_bucket('1 hour', timestamp) AS bucket,
+    tenant_id,
+    action,
+    severity,
+    resource_type,
+    COUNT(*) as count
+FROM audit_logs
+GROUP BY bucket, tenant_id, action, severity, resource_type
+WITH NO DATA;
+
+SELECT add_continuous_aggregate_policy('audit_logs_hourly_stats',
+    start_offset => INTERVAL '1 month',
+    end_offset => INTERVAL '1 hour',
+    schedule_interval => INTERVAL '1 hour');
+
 
 -- +migrate Down
 
--- Drop retention policy
-SELECT remove_retention_policy('audit_logs', if_exists => TRUE);
+-- Remove continuous aggregate policy
+SELECT remove_continuous_aggregate_policy('audit_logs_hourly_stats', if_exists => TRUE);
 
--- Drop the cleanup function
-DROP FUNCTION IF EXISTS delete_old_audit_logs;
+-- Drop continuous aggregate view
+DROP MATERIALIZED VIEW IF EXISTS audit_logs_hourly_stats;
+
+-- Remove compression policy
+SELECT remove_compression_policy('audit_logs', if_exists => TRUE);
 
 -- Drop tables in correct order due to foreign key constraints
 DROP TABLE IF EXISTS audit_logs CASCADE;

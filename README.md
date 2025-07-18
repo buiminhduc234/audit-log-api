@@ -1,229 +1,170 @@
 # Audit Log API
 
-A scalable audit logging service built with Go, PostgreSQL, and TimescaleDB.
+## Overview
+
+A comprehensive audit logging API system designed to track and manage user actions across different applications with multi-tenant support. This system handles high-volume logging, provides advanced search and filtering capabilities, and ensures data integrity and security.
+
+## Objective
+
+The Audit Log API provides:
+- **High-Performance Logging**: Handle 1000+ log entries per second with sub-100ms response times
+- **Multi-Tenant Architecture**: Complete data isolation between tenants
+- **Real-Time Streaming**: WebSocket-based live log monitoring
+- **Advanced Search**: Full-text search and filtering capabilities via OpenSearch
+- **Data Lifecycle Management**: Automated archival, cleanup, and retention policies
+- **Enterprise Security**: JWT authentication, role-based access control, and data encryption
+
+## Tech Stack
+
+### Core Technologies
+- **Language**: Go 1.21+
+- **Web Framework**: Gin (HTTP router and middleware)
+- **API Documentation**: Swagger/OpenAPI 3.0
+
+### Data Storage
+- **Primary Database**: PostgreSQL 15+ with TimescaleDB extension (optimized for time-series data)
+- **Search Engine**: OpenSearch (advanced search and full-text search)
+- **PubSub**: Redis ()
+- **Archive Storage**: AWS S3 (long-term log storage)
+
+### Message Queue & Workers
+- **Queue System**: AWS SQS (background task processing)
+- **Worker Services**: 
+  - Index Worker (OpenSearch indexing)
+  - Archive Worker (S3 archival)
+  - Cleanup Worker (data retention)
+
+### Infrastructure
+- **Containerization**: Docker & Docker Compose
+- **Local Development**: LocalStack (AWS services simulation)
+- **Database Migration**: sql-migrate
+- **Configuration**: Environment-based configuration
 
 ## Prerequisites
 
-- Docker and Docker Compose
-- Go 1.21 or later
-- Make (optional)
+Before running the application locally, ensure you have:
 
-## Quick Start
+- **Go 1.21+** installed
+- **Docker** and **Docker Compose** installed
+- **Make** utility (for running Makefile commands)
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/buiminhduc234/audit-log-api.git
-   cd audit-log-api
-   ```
+## Local Installation & Setup
 
-2. Copy the environment file:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Start the development environment:
-   ```bash
-   make dev
-   ```
-
-   This command will:
-   - Start the database containers
-   - Install dependencies
-   - Build the application
-   - Run the application
-
-## Build Instructions
-
-### Using Make (Recommended)
-
-The project includes a Makefile with common commands:
+### 1. Clone the Repository
 
 ```bash
-# Show available commands
-make help
-
-# Install dependencies
-make deps
-
-# Start database services
-make docker-up
-
-# Run database migrations
-make migrate
-
-# Build the application
-make build
-
-# Run the application
-make run
-
-# Run tests
-make test
-
-# Clean build artifacts
-make clean
-
-# Stop database services
-make docker-down
+git clone <repository-url>
+cd audit-log-api
 ```
 
-### Manual Build
+### 2. Start Infrastructure Services
 
-1. Install dependencies:
+Start all required services using Docker Compose:
+
+```bash
+# Start PostgreSQL, OpenSearch, Redis, and LocalStack
+make docker-up
+
+# Wait for services to be ready
+```
+
+### 3. Initialize AWS Resources
+
+Set up SQS queues and S3 buckets in LocalStack:
+
+```bash
+# Initialize SQS queues and S3 buckets
+make init-localstack
+```
+
+### 5. Database Setup
+
+Run database migrations:
+
+```bash
+# Create database schema and seed initial data
+make migrate-up
+```
+
+### 6. Build the Application
+
+```bash
+# Build all services
+make build-all
+```
+
+## Running the Application
+
+### Start All Services
+
+```bash
+# Start the main API server
+make run-api
+
+# In separate terminals, start the workers:
+make run-index-worker    # OpenSearch indexing
+make run-archive-worker  # S3 archival
+make run-cleanup-worker  # Data cleanup
+```
+
+### Verify Installation
+
+1. **API Health Check**:
    ```bash
-   go mod download
-   go mod tidy
+   curl http://localhost:10000/health
    ```
 
-2. Build the application:
+2. **API Documentation**:
+   Open http://localhost:10000/swagger/index.html in your browser
+
+3. **Generate Test Token**:
    ```bash
-   go build -o bin/audit-log-api ./cmd/api
+   make generate-token
    ```
 
-3. Run the application:
-   ```bash
-   ./bin/audit-log-api
-   ```
-
-## Database Setup
-
-### Using Docker Compose (Recommended)
-
-1. Start the database and pgAdmin:
-   ```bash
-   docker-compose up -d
-   ```
-
-   This will:
-   - Start PostgreSQL with TimescaleDB (port 5432)
-   - Start pgAdmin web interface (port 5050)
-   - Run database migrations automatically
-   - Configure TimescaleDB with optimized settings
-
-2. Database connection details:
-   ```
-   Host: localhost
-   Port: 5432
-   Database: audit_log
-   Username: postgres
-   Password: postgres
-   ```
-
-3. PgAdmin access:
-   ```
-   URL: http://localhost:5050
-   Email: admin@admin.com
-   Password: admin
-   ```
-
-### Database Schema
-
-The database includes two main tables:
-
-1. `tenants` - Stores tenant information:
-   - `id` (TEXT) - Primary key
-   - `name` (TEXT) - Tenant name
-   - `api_key` (TEXT) - Unique API key for authentication
-   - `rate_limit` (INTEGER) - API rate limit per tenant
-   - `created_at` (TIMESTAMP) - Creation timestamp
-   - `updated_at` (TIMESTAMP) - Last update timestamp
-
-2. `audit_logs` - Stores audit events:
-   - `id` (TEXT) - Event ID
-   - `tenant_id` (TEXT) - Foreign key to tenants
-   - `user_id` (TEXT) - User who performed the action
-   - `session_id` (TEXT) - Session identifier
-   - `action` (TEXT) - Action performed
-   - `resource` (TEXT) - Resource type
-   - `resource_id` (TEXT) - Resource identifier
-   - `ip_address` (TEXT) - IP address
-   - `user_agent` (TEXT) - User agent string
-   - `severity` (TEXT) - Event severity
-   - `metadata` (JSONB) - Additional event data
-   - `timestamp` (TIMESTAMP) - Event timestamp
+4. **Test API Endpoints**:
+   Import this [Postman collection](docs/AuditLogAPI.postman_collection.json) for testing
 
 ## Project Structure
 
 ```
 audit-log-api/
-├── cmd/
-│   └── api/              # Application entrypoint
-├── internal/
-│   ├── api/             # HTTP handlers
-│   ├── config/          # Configuration
-│   ├── domain/          # Domain models
-│   ├── middleware/      # HTTP middleware
-│   ├── repository/      # Data access layer
-│   └── service/         # Business logic
-├── pkg/
-│   ├── logger/          # Logging package
-│   └── utils/           # Shared utilities
-├── scripts/
-│   └── migrations/      # Database migrations
-├── docker/              # Docker configuration
-├── docker-compose.yml   # Docker services
-├── Makefile            # Build automation
-└── README.md           # Documentation
+├── cmd/                    # Application entry points
+│   ├── api/               # Main API server
+│   ├── archive_worker/    # S3 archive worker
+│   ├── cleanup_worker/    # Data cleanup worker
+│   └── index_worker/      # OpenSearch index worker
+├── internal/              # Internal application code
+│   ├── api/              # HTTP handlers and routes
+│   ├── config/           # Configuration management
+│   ├── domain/           # Domain models
+│   ├── middleware/       # HTTP middleware
+│   ├── repository/       # Data access layer
+│   ├── service/          # Business logic
+│   └── worker/           # Background workers
+├── pkg/                   # Public packages
+├── scripts/              # Database migrations and utilities
+├── docs/                 # API documentation
+└── docker-compose.yml    # Local development services
 ```
 
-## Development
+## Documentation
 
-### Code Style
+For detailed information about the system, refer to:
 
-The project follows standard Go code style. Run the following before committing:
+- **[AUDIT_LOG_FLOW_DIAGRAMS.md](AUDIT_LOG_FLOW_DIAGRAMS.md)** - System architecture and data flow
+- **[QUEUE_ARCHITECTURE.md](QUEUE_ARCHITECTURE.md)** - queue architecture
+- **API Documentation**: http://localhost:10000/swagger/index.html (when running)
 
-```bash
-make lint
-```
+## Features
 
-### Testing
-
-Run the test suite:
-
-```bash
-make test
-```
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and adjust the values:
-
-```env
-# Server Configuration
-SERVER_PORT=8080
-ENV=development
-
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=audit_log
-
-# JWT Configuration
-JWT_SECRET_KEY=your-secret-key
-JWT_EXPIRATION_HOURS=24
-```
-
-## Troubleshooting
-
-1. If the containers don't start:
-   ```bash
-   # Check container logs
-   docker-compose logs db
-   docker-compose logs pgadmin
-   ```
-
-2. To reset the database:
-   ```bash
-   # Stop containers and remove volumes
-   docker-compose down -v
-   
-   # Start fresh
-   docker-compose up -d
-   ```
-
-3. Common issues:
-   - Port conflicts: Make sure ports 5432 and 5050 are available
-   - Permission issues: Check Docker daemon permissions
-   - Connection refused: Wait a few seconds after container start
+- ✅ **Multi-tenant Architecture** with complete data isolation
+- ✅ **High-Performance API** (1000+ requests/second)
+- ✅ **Real-time WebSocket Streaming** for live log monitoring
+- ✅ **Advanced Search** with OpenSearch integration
+- ✅ **Data Lifecycle** (archival, cleanup, retention)
+- ✅ **JWT Authentication** with role-based access control
+- ✅ **AWS Integration** (SQS, S3) with LocalStack support
+- ✅ **Comprehensive API Documentation** with OpenAPI/Swagger
+- ✅ **Database Read/Write Separation** for optimal performance
+- ✅ **Background Workers** for async processing

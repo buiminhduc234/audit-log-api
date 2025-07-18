@@ -15,16 +15,20 @@ type SQSConfig struct {
 	Endpoint        string `mapstructure:"endpoint"`
 	AccessKeyID     string `mapstructure:"access_key_id"`
 	SecretAccessKey string `mapstructure:"secret_access_key"`
-	QueueURL        string `mapstructure:"queue_url"`
+	IndexQueueURL   string `mapstructure:"index_queue_url"`
+	ArchiveQueueURL string `mapstructure:"archive_queue_url"`
+	CleanupQueueURL string `mapstructure:"cleanup_queue_url"`
 }
 
 func DefaultSQSConfig() *SQSConfig {
 	return &SQSConfig{
 		Region:          getEnvOrDefault("AWS_REGION", "us-east-1"),
-		Endpoint:        getEnvOrDefault("AWS_SQS_ENDPOINT", "http://localhost:4566"), // LocalStack default
+		Endpoint:        getEnvOrDefault("AWS_SQS_ENDPOINT", "http://localhost:4566"),
 		AccessKeyID:     getEnvOrDefault("AWS_ACCESS_KEY_ID", "dummy"),
 		SecretAccessKey: getEnvOrDefault("AWS_SECRET_ACCESS_KEY", "dummy"),
-		QueueURL:        getEnvOrDefault("AWS_SQS_QUEUE_URL", "http://localhost:4566/000000000000/audit-log-queue"),
+		IndexQueueURL:   getEnvOrDefault("AWS_SQS_INDEX_QUEUE_URL", "http://localhost:4566/000000000000/audit-log-index-queue"),
+		ArchiveQueueURL: getEnvOrDefault("AWS_SQS_ARCHIVE_QUEUE_URL", "http://localhost:4566/000000000000/audit-log-archive-queue"),
+		CleanupQueueURL: getEnvOrDefault("AWS_SQS_CLEANUP_QUEUE_URL", "http://localhost:4566/000000000000/audit-log-cleanup-queue"),
 	}
 }
 

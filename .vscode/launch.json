@@ -1,0 +1,44 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch api server",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "env": {        "PJC_ENV": "local", "CONFIGOR_VERBOSE_MODE": "true"        },
+            "program": "./cmd/api/main.go",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Launch worker",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "env": {        "PJC_ENV": "local", "CONFIGOR_VERBOSE_MODE": "true"        },
+            "program": "./cmd/worker/main.go",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Launch archive worker",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "env": {        "PJC_ENV": "local", "CONFIGOR_VERBOSE_MODE": "true"        },
+            "program": "./cmd/archive_worker/main.go",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Launch cleanup worker",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "env": {        "PJC_ENV": "local", "CONFIGOR_VERBOSE_MODE": "true"        },
+            "program": "./cmd/cleanup_worker/main.go",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

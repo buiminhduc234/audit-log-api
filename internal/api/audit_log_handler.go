@@ -11,6 +11,7 @@ import (
 	"github.com/buiminhduc234/audit-log-api/internal/api/dto"
 	"github.com/buiminhduc234/audit-log-api/internal/domain"
 	"github.com/buiminhduc234/audit-log-api/internal/service"
+	contextutils "github.com/buiminhduc234/audit-log-api/internal/utils"
 	"github.com/buiminhduc234/audit-log-api/pkg/utils"
 )
 
@@ -30,7 +31,7 @@ func NewAuditLogHandler(service *service.AuditLogService) *AuditLogHandler {
 // @Accept  json
 // @Produce json
 // @Param   body body dto.CreateAuditLogRequest true "Audit log object"
-// @Success 201 {object}
+// @Success 201
 // @Failure 400 {object} dto.Error
 // @Failure 401 {object} dto.Error
 // @Failure 500 {object} dto.Error
@@ -57,7 +58,7 @@ func (h *AuditLogHandler) CreateLog(c *gin.Context) {
 // @Accept  json
 // @Produce json
 // @Param   body body []dto.CreateAuditLogRequest true "Array of audit log objects"
-// @Success 201 {object}
+// @Success 201
 // @Failure 400 {object} dto.Error
 // @Failure 401 {object} dto.Error
 // @Failure 500 {object} dto.Error
@@ -115,86 +116,26 @@ func (h *AuditLogHandler) GetLog(c *gin.Context) {
 // @Param   action query string false "Filter by action"
 // @Param   resource_type query string false "Filter by resource type"
 // @Param   severity query string false "Filter by severity"
-// @Param   start_time query string false "Filter by start time (RFC3339)"
-// @Param   end_time query string false "Filter by end time (RFC3339)"
+// @Param   start_time query string true "Filter by start time (RFC3339 or YYYY-MM-DD)" example:"2024-03-20T00:00:00Z"
+// @Param   end_time query string true "Filter by end time (RFC3339 or YYYY-MM-DD)" example:"2024-03-20T23:59:59Z"
 // @Success 200 {array} dto.AuditLogResponse
 // @Failure 401 {object} dto.Error
 // @Failure 500 {object} dto.Error
 // @Router  /logs [get]
 func (h *AuditLogHandler) ListLogs(c *gin.Context) {
-	filter := &domain.AuditLogFilter{
-		UserID:       c.Query("user_id"),
-		Action:       c.Query("action"),
-		ResourceType: c.Query("resource_type"),
-		Severity:     c.Query("severity"),
-		SessionID:    c.Query("session_id"),
-		IPAddress:    c.Query("ip_address"),
-		UserAgent:    c.Query("user_agent"),
-		Message:      c.Query("message"),
+	filter, err := getFilterFromQuery(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.Error{Error: err.Error()})
+		return
 	}
 
-	// Parse pagination
-	if page := c.Query("page"); page != "" {
-		if pageNum, err := strconv.Atoi(page); err == nil {
-			filter.Page = pageNum
-		}
-	}
-	if pageSize := c.Query("page_size"); pageSize != "" {
-		if size, err := strconv.Atoi(pageSize); err == nil {
-			filter.PageSize = size
-		}
-	}
-
-	// Parse time filters
-	if startTime := c.Query("start_time"); startTime != "" {
-		t, err := utils.ParseUserTime(startTime, false)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, dto.Error{
-				Error: err.Error(),
-			})
-			return
-		}
-		filter.StartTime = t
-	}
-	if endTime := c.Query("end_time"); endTime != "" {
-		t, err := utils.ParseUserTime(endTime, true)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, dto.Error{
-				Error: err.Error(),
-			})
-			return
-		}
-		filter.EndTime = t
-	}
-
-	logs, err := h.service.List(h.RequestCtx(c), filter)
+	logs, err := h.service.List(h.RequestCtx(c), filter, true)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, logs)
-}
-
-// DeleteOldLogs Delete audit logs older than retention period
-// @Summary Delete old logs
-// @Description Delete audit logs older than specified days
-// @Tags    audit_logs
-// @Produce json
-// @Param   days query int true "Number of days to retain"
-// @Success 204 "No Content"
-// @Failure 401 {object} dto.Error
-// @Failure 500 {object} dto.Error
-// @Router  /logs/cleanup [delete]
-func (h *AuditLogHandler) DeleteOldLogs(c *gin.Context) {
-	days := 90 // Default to 90 days
-
-	if err := h.service.DeleteOlderThan(h.RequestCtx(c), days); err != nil {
-		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
 }
 
 // ExportLogs Export audit logs in JSON or CSV format
@@ -207,8 +148,8 @@ func (h *AuditLogHandler) DeleteOldLogs(c *gin.Context) {
 // @Param   action query string false "Filter by action"
 // @Param   resource_type query string false "Filter by resource type"
 // @Param   severity query string false "Filter by severity"
-// @Param   start_time query string false "Filter by start time (RFC3339)"
-// @Param   end_time query string false "Filter by end time (RFC3339)"
+// @Param   start_time query string true "Filter by start time (RFC3339 or YYYY-MM-DD)" example:"2024-03-20T00:00:00Z"
+// @Param   end_time query string true "Filter by end time (RFC3339 or YYYY-MM-DD)" example:"2024-03-20T23:59:59Z"
 // @Success 200 {file} file
 // @Failure 400 {object} dto.Error
 // @Failure 401 {object} dto.Error
@@ -221,26 +162,13 @@ func (h *AuditLogHandler) ExportLogs(c *gin.Context) {
 		return
 	}
 
-	filter := &domain.AuditLogFilter{
-		UserID:       c.Query("user_id"),
-		Action:       c.Query("action"),
-		ResourceType: c.Query("resource_type"),
-		Severity:     c.Query("severity"),
+	filter, err := getFilterFromQuery(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.Error{Error: err.Error()})
+		return
 	}
 
-	// Parse time filters
-	if startTime := c.Query("start_time"); startTime != "" {
-		if t, err := time.Parse(time.RFC3339, startTime); err == nil {
-			filter.StartTime = t
-		}
-	}
-	if endTime := c.Query("end_time"); endTime != "" {
-		if t, err := time.Parse(time.RFC3339, endTime); err == nil {
-			filter.EndTime = t
-		}
-	}
-
-	logs, err := h.service.List(h.RequestCtx(c), filter)
+	logs, err := h.service.List(h.RequestCtx(c), filter, false)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
@@ -273,32 +201,132 @@ func (h *AuditLogHandler) ExportLogs(c *gin.Context) {
 // @Description Get statistics about audit logs including counts by action, severity, and resource
 // @Tags    audit_logs
 // @Produce json
-// @Param   start_time query string false "Filter by start time (RFC3339)"
-// @Param   end_time query string false "Filter by end time (RFC3339)"
+// @Param   start_time query string true "Filter by start time (RFC3339 or YYYY-MM-DD)" example:"2024-03-20T00:00:00Z"
+// @Param   end_time query string true "Filter by end time (RFC3339 or YYYY-MM-DD)" example:"2024-03-20T23:59:59Z"
 // @Success 200 {object} dto.GetAuditLogStatsResponse
 // @Failure 401 {object} dto.Error
 // @Failure 500 {object} dto.Error
 // @Router  /logs/stats [get]
 func (h *AuditLogHandler) GetStats(c *gin.Context) {
-	filter := &domain.AuditLogFilter{}
-
-	// Parse time filters
-	if startTime := c.Query("start_time"); startTime != "" {
-		if t, err := time.Parse(time.RFC3339, startTime); err == nil {
-			filter.StartTime = t
-		}
-	}
-	if endTime := c.Query("end_time"); endTime != "" {
-		if t, err := time.Parse(time.RFC3339, endTime); err == nil {
-			filter.EndTime = t
-		}
+	filter, err := getFilterFromQuery(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.Error{Error: err.Error()})
+		return
 	}
 
-	stats, err := h.service.GetStats(h.RequestCtx(c), filter)
+	stats, err := h.service.GetStatsV2(h.RequestCtx(c), filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.Error{Error: err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, stats)
+}
+
+func getFilterFromQuery(c *gin.Context) (*domain.AuditLogFilter, error) {
+	tenantID := c.GetString(string(contextutils.TenantIDKey))
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required")
+	}
+
+	filter := &domain.AuditLogFilter{
+		TenantID:     tenantID,
+		UserID:       c.Query("user_id"),
+		Action:       c.Query("action"),
+		ResourceType: c.Query("resource_type"),
+		Severity:     c.Query("severity"),
+		SessionID:    c.Query("session_id"),
+		IPAddress:    c.Query("ip_address"),
+		UserAgent:    c.Query("user_agent"),
+		Message:      c.Query("message"),
+	}
+
+	// Parse pagination
+	if page := c.Query("page"); page != "" {
+		if pageNum, err := strconv.Atoi(page); err == nil {
+			filter.Page = pageNum
+		}
+	}
+	if pageSize := c.Query("page_size"); pageSize != "" {
+		if size, err := strconv.Atoi(pageSize); err == nil {
+			filter.PageSize = size
+		}
+	}
+
+	// Parse time filters
+	if startTime := c.Query("start_time"); startTime != "" {
+		t, err := utils.ParseUserTime(startTime, false)
+		if err != nil {
+			return nil, err
+		}
+		filter.StartTime = t
+	} else {
+		return nil, fmt.Errorf("start_time is required")
+	}
+	if endTime := c.Query("end_time"); endTime != "" {
+		t, err := utils.ParseUserTime(endTime, true)
+		if err != nil {
+			return nil, err
+		}
+		filter.EndTime = t
+	} else {
+		return nil, fmt.Errorf("end_time is required")
+	}
+	if filter.StartTime.After(filter.EndTime) {
+		return nil, fmt.Errorf("start_time must be before end_time")
+	}
+
+	return filter, nil
+}
+
+// Cleanup Schedule cleanup operation for audit logs
+// @Summary Schedule cleanup operation
+// @Description Enqueues an archive job message to SQS for logs before the specified date
+// @Tags audit-logs
+// @Accept json
+// @Produce json
+// @Param before_date query string true "Cleanup logs before this date (ISO 8601 or YYYY-MM-DD)"
+// @Success 202 {object} map[string]interface{} "Cleanup operation scheduled"
+// @Failure 400 {object} dto.Error
+// @Failure 401 {object} dto.Error
+// @Failure 500 {object} dto.Error
+// @Security ApiKeyAuth
+// @Router /api/v1/logs/cleanup [delete]
+func (h *AuditLogHandler) Cleanup(c *gin.Context) {
+	tenantID := c.GetString(string(contextutils.TenantIDKey))
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, dto.Error{Error: "No tenant ID found"})
+		return
+	}
+
+	// Parse before_date from query parameter
+	beforeDateStr := c.Query("before_date")
+	if beforeDateStr == "" {
+		c.JSON(http.StatusBadRequest, dto.Error{Error: "before_date parameter is required"})
+		return
+	}
+
+	beforeDate, err := utils.ParseUserTime(beforeDateStr, true)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.Error{Error: "Invalid before_date format: " + err.Error()})
+		return
+	}
+
+	// Validate that the date is not in the future
+	if beforeDate.After(time.Now()) {
+		c.JSON(http.StatusBadRequest, dto.Error{Error: "before_date cannot be in the future"})
+		return
+	}
+
+	// Enqueue archive message to SQS
+	if err := h.service.ScheduleArchive(c.Request.Context(), tenantID, beforeDate); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.Error{Error: "Failed to schedule cleanup: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{
+		"message":     "Cleanup operation scheduled successfully",
+		"tenant_id":   tenantID,
+		"before_date": beforeDate.Format(time.RFC3339),
+	})
 }
