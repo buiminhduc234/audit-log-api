@@ -68,7 +68,7 @@ lint:
 
 # Generate token
 generate-token:
-	@go run ./cmd/app/generate_token.go -user=11111111-1111-1111-1111-111111111111 -roles=admin,user,auditor -tenant=11111111-1111-1111-1111-111111111111
+	@go run ./scripts/generate_token.go -user=11111111-1111-1111-1111-111111111111 -roles=admin,user,auditor -tenant=11111111-1111-1111-1111-111111111111
 
 swag:
 	@echo '$(shell swag --version)'

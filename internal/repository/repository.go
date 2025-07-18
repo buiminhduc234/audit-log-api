@@ -7,6 +7,7 @@ import (
 	"github.com/buiminhduc234/audit-log-api/internal/domain"
 )
 
+//go:generate mockery --name AuditLogRepository --output ../mocks
 type AuditLogRepository interface {
 	Create(ctx context.Context, log *domain.AuditLog) error
 	GetByID(ctx context.Context, id string) (*domain.AuditLog, error)
@@ -17,6 +18,7 @@ type AuditLogRepository interface {
 	GetStats(ctx context.Context, filter domain.AuditLogFilter) (*domain.AuditLogStats, error)
 }
 
+//go:generate mockery --name OpenSearchRepository --output ../mocks
 type OpenSearchRepository interface {
 	Index(ctx context.Context, log *domain.AuditLog) error
 	BulkIndex(ctx context.Context, logs []domain.AuditLog) error
@@ -25,6 +27,7 @@ type OpenSearchRepository interface {
 	DeleteIndex(ctx context.Context, tenantID string) error
 }
 
+//go:generate mockery --name TenantRepository --output ../mocks
 type TenantRepository interface {
 	Create(ctx context.Context, tenant *domain.Tenant) (*domain.Tenant, error)
 	GetByID(ctx context.Context, id string) (*domain.Tenant, error)
@@ -33,12 +36,13 @@ type TenantRepository interface {
 	List(ctx context.Context) ([]domain.Tenant, error)
 }
 
+//go:generate mockery --name PostgresRepository --output ../mocks
 type PostgresRepository interface {
 	AuditLog() AuditLogRepository
 	Tenant() TenantRepository
 }
 
-// Repository represents the main repository interface that combines both PostgreSQL and OpenSearch
+//go:generate mockery --name Repository --output ../mocks
 type Repository interface {
 	PostgresRepository
 	OpenSearch() OpenSearchRepository

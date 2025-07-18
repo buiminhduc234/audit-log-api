@@ -8,20 +8,28 @@ import (
 	"github.com/buiminhduc234/audit-log-api/internal/api/dto"
 	"github.com/buiminhduc234/audit-log-api/internal/domain"
 	"github.com/buiminhduc234/audit-log-api/internal/repository"
-	"github.com/buiminhduc234/audit-log-api/internal/service/queue"
 )
 
+//go:generate mockery --name WebSocketBroadcaster --output ../mocks
 type WebSocketBroadcaster interface {
 	BroadcastLog(log *dto.AuditLogResponse)
 }
 
+//go:generate mockery --name SQSService --output ../mocks
+type SQSService interface {
+	SendIndexMessage(ctx context.Context, log *domain.AuditLog) error
+	SendBulkIndexMessage(ctx context.Context, logs []domain.AuditLog) error
+	SendArchiveMessage(ctx context.Context, tenantID string, beforeDate time.Time) error
+	SendCleanupMessage(ctx context.Context, tenantID string, beforeDate time.Time) error
+}
+
 type AuditLogService struct {
 	repo        repository.Repository
-	sqsSvc      *queue.SQSService
+	sqsSvc      SQSService
 	broadcaster WebSocketBroadcaster
 }
 
-func NewAuditLogService(repo repository.Repository, sqsSvc *queue.SQSService) *AuditLogService {
+func NewAuditLogService(repo repository.Repository, sqsSvc SQSService) *AuditLogService {
 	return &AuditLogService{
 		repo:   repo,
 		sqsSvc: sqsSvc,

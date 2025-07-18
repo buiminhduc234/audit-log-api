@@ -1,20 +1,30 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/buiminhduc234/audit-log-api/internal/api/dto"
-	"github.com/buiminhduc234/audit-log-api/internal/service"
+	"github.com/buiminhduc234/audit-log-api/internal/domain"
 )
+
+//go:generate mockery --name TenantService --output ../mocks
+type TenantService interface {
+	Create(ctx context.Context, req dto.CreateTenantRequest) (dto.CreateTenantResponse, error)
+	GetByID(ctx context.Context, id string) (*domain.Tenant, error)
+	Update(ctx context.Context, tenant *domain.Tenant) error
+	Delete(ctx context.Context, id string) error
+	List(ctx context.Context) ([]dto.CreateTenantResponse, error)
+}
 
 type TenantHandler struct {
 	*BaseHandler
-	service *service.TenantService
+	service TenantService
 }
 
-func NewTenantHandler(service *service.TenantService) *TenantHandler {
+func NewTenantHandler(service TenantService) *TenantHandler {
 	return &TenantHandler{service: service}
 }
 

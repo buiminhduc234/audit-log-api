@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,17 +11,27 @@ import (
 
 	"github.com/buiminhduc234/audit-log-api/internal/api/dto"
 	"github.com/buiminhduc234/audit-log-api/internal/domain"
-	"github.com/buiminhduc234/audit-log-api/internal/service"
 	contextutils "github.com/buiminhduc234/audit-log-api/internal/utils"
 	"github.com/buiminhduc234/audit-log-api/pkg/utils"
 )
 
-type AuditLogHandler struct {
-	*BaseHandler
-	service *service.AuditLogService
+//go:generate mockery --name AuditLogService --output ../mocks
+type AuditLogService interface {
+	Create(ctx context.Context, req dto.CreateAuditLogRequest) error
+	BulkCreate(ctx context.Context, reqs []dto.CreateAuditLogRequest) error
+	GetByID(ctx context.Context, id string) (*dto.AuditLogResponse, error)
+	List(ctx context.Context, filter *domain.AuditLogFilter, usePagination bool) ([]dto.AuditLogResponse, error)
+	GetStats(ctx context.Context, filter *domain.AuditLogFilter) (*dto.GetAuditLogStatsResponse, error)
+	GetStatsV2(ctx context.Context, filter *domain.AuditLogFilter) (*dto.GetAuditLogStatsResponse, error)
+	ScheduleArchive(ctx context.Context, tenantID string, beforeDate time.Time) error
 }
 
-func NewAuditLogHandler(service *service.AuditLogService) *AuditLogHandler {
+type AuditLogHandler struct {
+	*BaseHandler
+	service AuditLogService
+}
+
+func NewAuditLogHandler(service AuditLogService) *AuditLogHandler {
 	return &AuditLogHandler{service: service}
 }
 
